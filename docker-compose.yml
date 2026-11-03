@@ -1,0 +1,51 @@
+# Start everything:  docker compose up --build
+#   API + docs:  http://localhost:8000/docs
+#   Dashboard:   http://localhost:8501
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER:     ${POSTGRES_USER:-siteguard}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-siteguard}
+      POSTGRES_DB:       ${POSTGRES_DB:-siteguard}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-siteguard}"]
+      interval: 5s
+      retries: 10
+
+  api:
+    build: ./api
+    environment:
+      DATABASE_URL:       postgresql+psycopg://${POSTGRES_USER:-siteguard}:${POSTGRES_PASSWORD:-siteguard}@db:5432/${POSTGRES_DB:-siteguard}
+      MODEL_PATH:         /app/models/best.pt
+      OFFICE_MODEL_PATH:  /app/models/office_best.pt
+      DETECTION_MODE:     ${DETECTION_MODE:-both}
+      CONF_THRESHOLD:     ${CONF_THRESHOLD:-0.35}
+      VIOLATION_CLASSES:  ${VIOLATION_CLASSES:-NO-Hardhat,NO-Safety Vest}
+      PERSON_CLASSES:     ${PERSON_CLASSES:-Person,person}
+      OFFICE_CLASSES:     ${OFFICE_CLASSES:-laptop,keyboard,mouse,cell phone,cup,monitor,tv}
+      FLAG_UNATTENDED:    ${FLAG_UNATTENDED:-false}
+    volumes:
+      - ./models:/app/models:ro   # put your trained best.pt / office_best.pt here
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  dashboard:
+    build: ./dashboard
+    environment:
+      API_URL: http://api:8000
+    ports:
+      - "8501:8501"
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  pgdata:
