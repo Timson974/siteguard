@@ -128,7 +128,8 @@ def create_app(detector=None) -> FastAPI:
                 n_violations=summary["n_violations"],
                 source="api",
             )
-            inf.detections = [DetectionRow(**d.to_dict()) for d in detections]
+          _db_fields = {"class_name", "confidence", "x1", "y1", "x2", "y2", "is_violation"}
+inf.detections = [DetectionRow(**{k: v for k, v in d.to_dict().items() if k in _db_fields}) for d in detections]  
             db.add(inf)
             db.commit()
             inference_id = inf.id
